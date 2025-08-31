@@ -40,10 +40,4 @@ const (
 	// 上傳狀態
 	UploadStatusYes = "1" // 已上傳
 	UploadStatusNo  = "0" // 未上傳
-	
-	// 通知類別
-	AllowanceNotifyEmail = "E" // Email 通知
-	AllowanceNotifySMS   = "S" // 簡訊通知
-	AllowanceNotifyAll   = "A" // 全部通知
-	AllowanceNotifyNone  = "N" // 不通知
 )

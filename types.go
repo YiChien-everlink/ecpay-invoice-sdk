@@ -21,7 +21,7 @@ type BaseRequest struct {
 
 // BaseResponse 基本回應結構
 type BaseResponse struct {
-	MerchantID string `json:"MerchantID"`
+	MerchantID interface{} `json:"MerchantID"` // 可能是 string 或 number
 	RpHeader   struct {
 		Timestamp int64 `json:"Timestamp"`
 	} `json:"RpHeader"`
@@ -55,17 +55,8 @@ type IssueInvoiceRequest struct {
 	InvType      string `json:"InvType"`
 	Vat          string `json:"vat,omitempty"`
 	
-	// 商品明細（原始）
-	Items []Item `json:"-"`
-	
-	// 商品明細（處理後，用|分隔）
-	ItemName    string `json:"ItemName"`
-	ItemCount   string `json:"ItemCount"`
-	ItemWord    string `json:"ItemWord"`
-	ItemPrice   string `json:"ItemPrice"`
-	ItemTaxType string `json:"ItemTaxType"`
-	ItemAmount  string `json:"ItemAmount"`
-	ItemRemark  string `json:"ItemRemark,omitempty"`
+	// 商品明細 - B2C API 使用 Items 陣列
+	Items []Item `json:"Items"`
 	
 	// 其他選填
 	DelayDay    int    `json:"DelayDay,omitempty"`
@@ -74,13 +65,13 @@ type IssueInvoiceRequest struct {
 
 // Item 商品明細
 type Item struct {
-	ItemSeq     string `json:"ItemSeq,omitempty"`
+	ItemSeq     int    `json:"ItemSeq"`
 	ItemName    string `json:"ItemName"`
-	ItemCount   string `json:"ItemCount"`
+	ItemCount   int    `json:"ItemCount"`
 	ItemWord    string `json:"ItemWord"`
-	ItemPrice   string `json:"ItemPrice"`
+	ItemPrice   int    `json:"ItemPrice"`
 	ItemTaxType string `json:"ItemTaxType"`
-	ItemAmount  string `json:"ItemAmount"`
+	ItemAmount  int    `json:"ItemAmount"`
 	ItemRemark  string `json:"ItemRemark,omitempty"`
 }
 
@@ -135,11 +126,7 @@ func (r *IssueInvoiceRequest) Validate() error {
 	// 驗證金額
 	totalAmount := 0
 	for _, item := range r.Items {
-		amount, err := strconv.Atoi(item.ItemAmount)
-		if err != nil {
-			return NewError(ErrCodeValidation, fmt.Sprintf("商品金額格式錯誤: %s", item.ItemAmount))
-		}
-		totalAmount += amount
+		totalAmount += item.ItemAmount
 	}
 	
 	salesAmount, err := strconv.Atoi(r.SalesAmount)
@@ -147,18 +134,11 @@ func (r *IssueInvoiceRequest) Validate() error {
 		return NewError(ErrCodeValidation, "發票金額格式錯誤")
 	}
 	
-	// 檢查金額是否一致（考慮稅額）
-	if r.TaxType == "1" { // 應稅
-		expectedTotal := int(float64(totalAmount) * 1.05)
-		if expectedTotal != salesAmount {
-			return NewError(ErrCodeValidation, 
-				fmt.Sprintf("發票金額不一致: 預期 %d, 實際 %d", expectedTotal, salesAmount))
-		}
-	} else {
-		if totalAmount != salesAmount {
-			return NewError(ErrCodeValidation, 
-				fmt.Sprintf("發票金額不一致: 預期 %d, 實際 %d", totalAmount, salesAmount))
-		}
+	// 檢查金額是否一致
+	// B2C API 中 SalesAmount 是未稅金額，稅額另計
+	if totalAmount != salesAmount {
+		return NewError(ErrCodeValidation, 
+			fmt.Sprintf("發票金額不一致: 預期 %d, 實際 %d", totalAmount, salesAmount))
 	}
 	
 	return nil
@@ -203,139 +183,6 @@ func (r *InvalidInvoiceRequest) Validate() error {
 
 // InvalidInvoiceResponse 作廢發票回應
 type InvalidInvoiceResponse struct {
-	RtnCode int    `json:"RtnCode"`
-	RtnMsg  string `json:"RtnMsg"`
-}
-
-// QueryInvoiceRequest 查詢發票請求
-type QueryInvoiceRequest struct {
-	RelateNumber string `json:"RelateNumber"`
-}
-
-// Validate 驗證查詢請求
-func (r *QueryInvoiceRequest) Validate() error {
-	if r.RelateNumber == "" {
-		return NewError(ErrCodeValidation, "RelateNumber 不能為空")
-	}
-	
-	return nil
-}
-
-// QueryInvoiceResponse 查詢發票回應
-type QueryInvoiceResponse struct {
-	RtnCode         int    `json:"RtnCode"`
-	RtnMsg          string `json:"RtnMsg"`
-	InvoiceNo       string `json:"IIS_Number"`
-	InvoiceDate     string `json:"IIS_Create_Date"`
-	InvoiceStatus   string `json:"IIS_Invoice_Status"`
-	SalesAmount     string `json:"IIS_Sales_Amount"`
-	TaxAmount       string `json:"IIS_Tax_Amount"`
-	TotalAmount     string `json:"IIS_Amount"`
-	RemainAmount    string `json:"IIS_Remain_Amount"`
-	InvalidStatus   string `json:"IIS_Invalid_Status"`
-	UploadStatus    string `json:"IIS_Upload_Status"`
-	TurnkeyStatus   string `json:"IIS_Turnkey_Status"`
-	PrintFlag       string `json:"IIS_Print_Flag"`
-	AwardFlag       string `json:"IIS_Award_Flag"`
-	AwardType       string `json:"IIS_Award_Type"`
-	RandomNumber    string `json:"InvoiceRandomNumber"`
-	CarrierType     string `json:"IIS_Carrier_Type"`
-	CarrierNum      string `json:"IIS_Carrier_Num"`
-	CustomerName    string `json:"IIS_Customer_Name"`
-	CustomerID      string `json:"IIS_Customer_ID"`
-}
-
-// AllowanceInvoiceRequest 開立折讓請求
-type AllowanceInvoiceRequest struct {
-	InvoiceNo       string        `json:"InvoiceNo"`
-	InvoiceDate     string        `json:"InvoiceDate"`
-	AllowanceNotify string        `json:"AllowanceNotify"`
-	CustomerName    string        `json:"CustomerName"`
-	NotifyMail      string        `json:"NotifyMail,omitempty"`
-	NotifyPhone     string        `json:"NotifyPhone,omitempty"`
-	AllowanceAmount string        `json:"AllowanceAmount"`
-	
-	// 商品明細（原始）
-	Items []AllowanceItem `json:"-"`
-	
-	// 商品明細（處理後）
-	ItemName    string `json:"ItemName"`
-	ItemCount   string `json:"ItemCount"`
-	ItemWord    string `json:"ItemWord"`
-	ItemPrice   string `json:"ItemPrice"`
-	ItemTaxType string `json:"ItemTaxType"`
-	ItemAmount  string `json:"ItemAmount"`
-}
-
-// AllowanceItem 折讓商品明細
-type AllowanceItem struct {
-	ItemSeq     string `json:"ItemSeq,omitempty"`
-	ItemName    string `json:"ItemName"`
-	ItemCount   string `json:"ItemCount"`
-	ItemWord    string `json:"ItemWord"`
-	ItemPrice   string `json:"ItemPrice"`
-	ItemTaxType string `json:"ItemTaxType"`
-	ItemAmount  string `json:"ItemAmount"`
-}
-
-// Validate 驗證折讓請求
-func (r *AllowanceInvoiceRequest) Validate() error {
-	if r.InvoiceNo == "" {
-		return NewError(ErrCodeValidation, "InvoiceNo 不能為空")
-	}
-	
-	if r.InvoiceDate == "" {
-		return NewError(ErrCodeValidation, "InvoiceDate 不能為空")
-	}
-	
-	if r.AllowanceAmount == "" {
-		return NewError(ErrCodeValidation, "AllowanceAmount 不能為空")
-	}
-	
-	if len(r.Items) == 0 {
-		return NewError(ErrCodeValidation, "折讓商品明細不能為空")
-	}
-	
-	return nil
-}
-
-// AllowanceInvoiceResponse 開立折讓回應
-type AllowanceInvoiceResponse struct {
-	RtnCode     int    `json:"RtnCode"`
-	RtnMsg      string `json:"RtnMsg"`
-	AllowanceNo string `json:"IA_Allow_No"`
-	InvoiceNo   string `json:"IA_Invoice_No"`
-	AllowanceDate string `json:"IA_Date"`
-	AllowanceAmount string `json:"IA_Amount"`
-	RemainAmount string `json:"IA_Remain_Amount"`
-}
-
-// AllowanceInvalidRequest 作廢折讓請求
-type AllowanceInvalidRequest struct {
-	InvoiceNo   string `json:"InvoiceNo"`
-	AllowanceNo string `json:"AllowanceNo"`
-	Reason      string `json:"Reason"`
-}
-
-// Validate 驗證作廢折讓請求
-func (r *AllowanceInvalidRequest) Validate() error {
-	if r.InvoiceNo == "" {
-		return NewError(ErrCodeValidation, "InvoiceNo 不能為空")
-	}
-	
-	if r.AllowanceNo == "" {
-		return NewError(ErrCodeValidation, "AllowanceNo 不能為空")
-	}
-	
-	if r.Reason == "" {
-		return NewError(ErrCodeValidation, "Reason 不能為空")
-	}
-	
-	return nil
-}
-
-// AllowanceInvalidResponse 作廢折讓回應
-type AllowanceInvalidResponse struct {
 	RtnCode int    `json:"RtnCode"`
 	RtnMsg  string `json:"RtnMsg"`
 }

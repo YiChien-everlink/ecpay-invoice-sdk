@@ -3,7 +3,6 @@ package ecpay
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 )
 
@@ -89,11 +88,11 @@ func ConvertToInvoiceItem(name string, count int, price float64) Item {
 	
 	return Item{
 		ItemName:    name,
-		ItemCount:   strconv.Itoa(count),
+		ItemCount:   count,
 		ItemWord:    "個",
-		ItemPrice:   fmt.Sprintf("%.0f", price),
+		ItemPrice:   int(price),
 		ItemTaxType: TaxTypeRegular,
-		ItemAmount:  fmt.Sprintf("%.0f", amount),
+		ItemAmount:  int(amount),
 	}
 }
 
