@@ -7,9 +7,9 @@ const (
 	
 	// 載具類別
 	CarrierTypeNone    = ""  // 無載具
-	CarrierTypeMember  = "2" // 會員載具  
-	CarrierTypeCitizen = "3" // 手機條碼
-	
+	CarrierTypeMember  = "1" // 會員載具  
+	CarrierTypeCitizen = "2" // 自然人憑證
+	CarrierTypeMobile  = "3" // 手機條碼
 	// 列印旗標
 	PrintNo  = "0" // 不列印
 	PrintYes = "1" // 列印
